@@ -122,6 +122,15 @@ window.onload = () => {
       new RandomEnemyGenerator(game.worlds[0].areas[0], game.worlds[0].name.endsWith("Hard")).generate_random_enemies(player.area);
     }
 
+    replay.initial = {
+      starting_pos: starting_pos,
+      world: world.selectedIndex,
+      is_custom_world: isCustomWorld,
+      hero: hero.selectedIndex,
+      head: { value: head.value, selectedIndex: head.selectedIndex },
+      settings: settings,
+    }
+
     game.worlds[0].areas[0].load();
     startAnimation();
     menu.remove();
@@ -140,6 +149,66 @@ window.onload = () => {
     document.onmouseup = (e) => {
       applyInputDelay(settings.input_delay,()=> {if (!settings.mouse_toggle && !inMenu) mouse = !mouse;})
     };
+  }
+
+  document.getElementById("connect_replay").onclick = () => {
+    if (!replay_loaded) {
+      alert("Please load a replay file first.");
+      return;
+    }
+    const initialData = replay.initial;
+
+    for (const setting in initialData.settings) {
+      settings[setting] = initialData.settings[setting];
+    }
+    
+    const head = document.getElementById("wreath") //initialData.head;
+    if(head.value){
+      const additionalInfo = (head.selectedIndex <= 5) ? "-wreath" : "";
+      const formatHead = head.value.toLowerCase().replaceAll(' ', '-') + additionalInfo;
+      images.hat.src = `texture/${formatHead}.png`;
+    }
+
+    gamed.style.display = "inline-block";
+    inMenu = false;
+    loadReplay();
+    const player = new [Basic,Magmax,Rime,Morfe,Aurora,Necro,Brute,Shade,Chrono,Reaper,Rameses,Cent,Jotunn,Candy,Mirage,Clown,Burst,Lantern,Pole,Polygon,Poop][hero.selectedIndex](initialData.starting_pos,5);
+    player.name = settings.nick;
+    game.players.push(player);
+    if(settings.max_stats){
+      player.upgradeToMaxStats();
+    }
+    
+    loadImages(game.players[0].className);
+    if(game.worlds.length == 0) game.worlds.push(missing_world);
+
+    // This is going to be effort
+    if (game.worlds[0].name.startsWith("Endless Echo") && !isCustomWorld) {
+      game.echoManagers[game.worlds[0].name.endsWith("Hard") ? "hard" : "normal"].create_areas([], player.area);
+      // Generate random enemies on load
+      new RandomEnemyGenerator(game.worlds[0].areas[0], game.worlds[0].name.endsWith("Hard")).generate_random_enemies(player.area);
+    }
+
+    game.worlds[0].areas[0].load();
+    startReplay();
+    menu.remove();
+
+    /*
+    document.addEventListener("mousemove", Pos, false);
+    document.addEventListener("keydown", keydownKeys, false);
+    document.addEventListener("keyup", keyupKeys, false);
+    document.onmousedown = (e) => {
+      applyInputDelay(settings.input_delay,()=>{
+        if (e.buttons == 1 && !inMenu) {
+          mouse = !mouse;
+        }
+      });
+    };
+    
+    document.onmouseup = (e) => {
+      applyInputDelay(settings.input_delay,()=> {if (!settings.mouse_toggle && !inMenu) mouse = !mouse;})
+    };
+    */
   }
 }
 function keydownKeys(e) {
@@ -276,6 +345,10 @@ function keydownKeys(e) {
     if (e.keyCode == 80 && settings.dev) {
       settings.timer_clear = !settings.timer_clear;
     }
+
+    if (e.key == "+") {
+      exportReplay();
+    }
   })
 }
 
@@ -299,6 +372,48 @@ function Pos(p) {
 
 const inputElement = document.getElementById("load");
 inputElement.addEventListener("change", handleFiles, false);
+
+const replayInputElement = document.getElementById("replay_file");
+replayInputElement.addEventListener("change", importReplay, false);
+
+function exportReplay() {
+  const exportData = JSON.stringify(replay);
+  const blob = new Blob([exportData], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Replay.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importReplay() {
+  const file = this.files[0];
+
+  if (!file) {
+    console.error("No file selected.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      replay = JSON.parse(event.target.result);
+      console.log("Replay imported successfully:", replay);
+      replay_loaded = true;
+    } catch (error) {
+      console.error("Failed to parse replay file:", error);
+    }
+  };
+
+  reader.onerror = () => {
+    console.error("Error reading the file.");
+  };
+
+  reader.readAsText(file); // Read the file as a text string
+}
 
 function handleFiles() {
   loaded = true;

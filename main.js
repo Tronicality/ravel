@@ -8,6 +8,21 @@ let mouse = false;
 let loaded = false;
 let lastRender = 0;
 let fov = 32;
+let frame = 0;
+let replay_loaded = false;
+let replay_state_reason = { type: 1, reason: "World changed" };
+let replay = { initial: {}, data: [], worlds: [] };
+let replayData = {
+  state: {},
+  area: {},
+  pellet: {},
+  player: {},
+  time: 0,
+  frame: 0,
+  input: {},
+  area_updated: true,
+  state_change_reason: replay_state_reason,
+};
 
 function loadMain() {
   isCustomWorld = false;
@@ -98,6 +113,12 @@ function loadSecondary() {
   );
 }
 
+function loadReplay() {
+  for (const world of replay.worlds) {
+    game.worlds.push(new ReplayWorld(new Vector(world.pos.x, world.pos.y), world.id, world));
+  }
+}
+
 const images = {
   tiles: new Image(),
   hat: new Image(),
@@ -169,7 +190,20 @@ function animate(time) {
     const wasVictory = area.getActiveBoundary().t;
     const strokeColor = area.title_stroke_color || "#425a6d";
     const areaText = wasVictory ? "Victory!" : area.name;
-    const areaUpdated = oldArea !== player.area || oldWorld !== player.world;
+    const areaChanged = oldArea !== player.area;
+    const worldChanged = oldWorld !== player.world;
+    const areaUpdated = areaChanged || worldChanged;
+
+    if (areaChanged) {
+      // This may not be needed, but just in case
+      replay_state_reason.type = 0;
+      replay_state_reason.reason = "Area changed";
+    }
+
+    if (worldChanged) {
+      replay_state_reason.type = 1;
+      replay_state_reason.reason = "World changed";
+    }
 
     renderArea(game.getStates(0), game.players, player.pos, areaUpdated);
 
@@ -191,8 +225,94 @@ function animate(time) {
         drawAreaHeader(context, 5, "#006b2c", area.text, staticWidth, staticHeight - 120, null, size, "#00ff6b");
       }
     });
+
+    handleReplay(time, input, areaUpdated);
+  }
+  
+  lastRender = time;
+}
+
+function playReplay(time) {
+  const progress = settings.fps_limit === "unlimited" ? Math.min(time - lastRender, 1000) : tick_time;
+
+  if (settings.fps_limit === "unlimited") {
+    window.requestAnimationFrame(animate);
   }
 
+  if (!inMenu) {
+    if (settings.dev) calculateFps();
+    updateBackground(context, width, height, '#333');
+
+    const input = replay.data[frame].input;
+
+    if (settings.slow_upgrade) {
+      const allowedKeys = [KEYS.LEFT, KEYS.RIGHT, KEYS.UP, KEYS.DOWN, KEYS.W, KEYS.A, KEYS.S, KEYS.D, KEYS.SHIFT];
+      Object.keys(keys).forEach(key => {
+        if (keys[key] && !allowedKeys.includes(parseInt(key))) {
+          keys[key] = false;
+        }
+      });
+    }
+
+    const player = game.players[0];
+
+    if (inputArray.length > settings.tick_delay && settings.fps_limit !== "unlimited" && settings.tick_delay > 0) {
+      inputArray.splice(0, inputArray.length - settings.tick_delay);
+      game.inputPlayer(0, inputArray[0]);
+    } else {
+      game.inputPlayer(0, input);
+    }
+    inputArray.push(input);
+
+    const oldArea = player.area;
+    const oldWorld = player.world;
+
+    game.update(progress * tick_speed);
+
+    const world = game.worlds[player.world];
+    const area = world.areas[player.area];
+    const wasVictory = area.getActiveBoundary().t;
+    const strokeColor = area.title_stroke_color || "#425a6d";
+    const areaText = wasVictory ? "Victory!" : area.name;
+    const areaChanged = oldArea !== player.area;
+    const worldChanged = oldWorld !== player.world;
+    const areaUpdated = areaChanged || worldChanged;
+
+    if (areaChanged) {
+      // This may not be needed, but just in case
+      replay_state_reason.type = 0;
+      replay_state_reason.reason = "Area changed";
+    }
+
+    if (worldChanged) {
+      replay_state_reason.type = 1;
+      replay_state_reason.reason = "World changed";
+    }
+
+    renderArea(game.getStates(0), game.players, player.pos, areaUpdated);
+
+    applyScale(context, settings.scale, () => {
+      drawAreaHeader(context, 6, strokeColor, areaText, staticWidth, 40, world);
+
+      if (settings.timer) {
+        const style = player.victoryTimer > 0 ? 'yellow' : null;
+        const timerTime = secondsFormat(Math.floor(player.timer / 1000));
+        drawAreaHeader(context, 6, strokeColor, timerTime, staticWidth, 80, null, 30, style);
+      }
+
+      if (settings.world.selectedIndex === 3 && !replay_loaded) {
+        area.text = "this is to import a map, top left in the menu";
+      }
+
+      if (area.text) {
+        const size = world.selectedIndex === 2 && player.area === 0 ? 35 : 25;
+        drawAreaHeader(context, 5, "#006b2c", area.text, staticWidth, staticHeight - 120, null, size, "#00ff6b");
+      }
+    });
+
+    frame++;
+  }
+  
   lastRender = time;
 }
 
@@ -221,4 +341,69 @@ function startAnimation() {
       requestAnimationFrame(animateRAF);
     }
   }
+}
+
+function startReplay() {
+  const fpsLimit = settings.fps_limit;
+
+  if (fpsLimit === "unlimited") {
+    requestAnimationFrame(playReplay);
+  } else {
+    tick_time = 1000 / parseInt(fpsLimit);
+
+    if (!settings.v_sync) {
+      const gameInterval = new interval(tick_time, playReplay);
+      gameInterval.run();
+    } else {
+      let lastTime = 0;
+
+      function animateRAF(currentTime) {
+        if (currentTime - lastTime >= tick_time) {
+          playReplay(currentTime);
+          lastTime = currentTime - ((currentTime - lastTime) % tick_time);
+        }
+        requestAnimationFrame(animateRAF);
+      }
+
+      requestAnimationFrame(animateRAF);
+    }
+  }
+}
+
+function handleReplay(time, input) {
+  const area_has_updated = replay_state_reason.type !== null
+
+  if (area_has_updated) {
+    replayData.player = game.players[0];
+    replayData.state = game.getStates(0);
+    replayData.state_change_reason = replay_state_reason;
+    replayData.settings = settings;
+
+    switch (replay_state_reason.type) {
+      case 0: // Area change, may not be needed
+        replayData.area = game.worlds[game.players[0].world].areas[game.players[0].area];
+        break;
+      case 1: // World change
+        replay.worlds.push(game.worlds[game.players[0].world]);
+        break;
+      case 2: // Pellet change, may not be needed
+        replayData.pellet = game.worlds[game.players[0].world].areas[game.players[0].area].pellets;
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  replayData.area_updated = area_has_updated;
+  replayData.time = time;
+  replayData.frame = frame;
+  replayData.input = input;
+
+  replay.data.push(replayData);
+
+  replay_state_reason = { type: null, reason: String.empty };
+  replayData = {};
+
+  frame++;
 }
