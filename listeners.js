@@ -129,6 +129,7 @@ window.onload = () => {
       hero: hero.selectedIndex,
       head: { value: head.value, selectedIndex: head.selectedIndex },
       settings: settings,
+      sandbox: true,
     }
 
     game.worlds[0].areas[0].load();
@@ -156,7 +157,9 @@ window.onload = () => {
       alert("Please load a replay file first.");
       return;
     }
+    
     const initialData = replay.initial;
+    game = new ReplayGame();
 
     for (const setting in initialData.settings) {
       settings[setting] = initialData.settings[setting];

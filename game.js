@@ -1,4 +1,3 @@
-
 class Game {
   constructor() {
     this.worlds = [];

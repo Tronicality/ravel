@@ -9,38 +9,52 @@
   <div id="menu">
     <div id="main">
       <div id="play">
-        <button type="button" name="button" class="connect" id="connect">Enter game</button><br><br>
-        <button type="button" name="button" class="connect" id="connect_replay">Replay</button><br><br>
-        <div id="name">
-          <input type="text" id="nick" value="Sandbox" placeholder="Username">
+        <div class="tab-container">
+          <div class="tab active" id="play-tab">Play Game</div>
+          <div class="tab" id="replay-tab">Replay</div>
         </div>
-        <select id='hero'>
-          <option>Normal</option>
-          <option>Magmax</option>
-          <option>Rime</option>
-          <option>Morfe</option>
-          <option>Aurora</option>
-          <option>Necro</option>
-          <option>Brute</option>
-          <option>Shade</option>
-          <option>Chrono</option>
-          <option>Reaper</option>
-          <option>Rameses</option>
-          <option>Cent</option>
-          <option>Jötunn</option>
-          <option>Candy</option>
-          <option>Mirage</option>
-          <option>Clown</option>
-          <option>Burst</option>
-          <option>Lantern</option>
-          <option>Pole</option>
-          <option>Polygon</option>
-          <option>Idk</option>
-        </select>
+        
+        <div class="tab-content active" id="play-content">
+          <button type="button" name="button" class="connect" id="connect">Enter game</button><br><br>
+          <div id="name">
+            <input type="text" id="nick" value="Sandbox" placeholder="Username">
+          </div>
+          <select id='hero'>
+            <option>Normal</option>
+            <option>Magmax</option>
+            <option>Rime</option>
+            <option>Morfe</option>
+            <option>Aurora</option>
+            <option>Necro</option>
+            <option>Brute</option>
+            <option>Shade</option>
+            <option>Chrono</option>
+            <option>Reaper</option>
+            <option>Rameses</option>
+            <option>Cent</option>
+            <option>Jötunn</option>
+            <option>Candy</option>
+            <option>Mirage</option>
+            <option>Clown</option>
+            <option>Burst</option>
+            <option>Lantern</option>
+            <option>Pole</option>
+            <option>Polygon</option>
+            <option>Idk</option>
+          </select>
+        </div>
+        
+        <div class="tab-content" id="replay-content">
+          <button type="button" name="button" class="connect" id="connect_replay">Replay</button><br><br>
+          <br>
+          <input type="file" id="replay_file" accept="application/json, .json, .txt" name="file">
+        </div>
       </div>
     </div>
     <div id='alert'></div>
-    <div id="panel">
+    
+    <!-- Play mode panels -->
+    <div id="panel" class="panel-active">
       <div id="interact">
         <label for="load" class="file-upload-label">
           <input type="file" id="load" accept="application/x-yaml, .json, .yaml, .txt" name="file">
@@ -88,17 +102,13 @@
         <option>None</option>
       </select>
     </div>
-    <div id="settings">
+    
+    <div id="settings" class="panel-active">
       <div>Settings:</div>
       <div class="settingsElement" style="line-height:75%;">
         <br><br>
         <input type="checkbox" id="create_replay" checked>
         <label for="create_replay">Create Replay</label>
-        <br><br>
-        <input type="checkbox" id="play_replay" checked>
-        <label for="play_replay">Play Replay</label>
-        <br>
-        <input type="file" id="replay_file" accept="application/json, .json, .txt" name="file">
         <br><br>
         <input type="checkbox" id="mouse_toggle" checked>
         <label for="mouse_toggle">Mouse Toggle Movement</label>
@@ -162,7 +172,8 @@
         <input type="number" id="tick_delay" placeholder="1 tick is 33ms" value="2" min="0" style="width:100px">
       </div>
     </div>
-    <div id="hotkeys" style="position: absolute; top: 10px; right: 10px; background-color: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; color: white;">
+    
+    <div id="hotkeys" class="panel-active">
       <h3 style="color: #ffcc00; text-align: center;">Hotkeys</h3>
       <ul style="list-style-type: none; padding: 0;">
         <li>W/↑ - Move Up</li>
@@ -195,7 +206,66 @@
         <li>END - Reset Your Run</li>
       </ul>
     </div>
+    
+    <!-- Replay mode panels -->
+    <div id="replay-panel" class="panel-hidden">
+      <!-- In case of future development-->
+    </div>
+    
+    <div id="replay-settings" class="panel-hidden">
+      <div>Replay Settings:</div>
+      <div class="settingsElement" style="line-height:75%;">
+        <br><br>
+        <input type="checkbox" id="replay-show-hitboxes" checked>
+        <label for="replay-show-hitboxes">Show Hitboxes</label>
+        <br><br>
+        <input type="checkbox" id="replay-show-trajectories">
+        <label for="replay-show-trajectories">Show Projectile Trajectories</label>
+        <br><br>
+        <input type="checkbox" id="replay-show-stats" checked>
+        <label for="replay-show-stats">Show Player Stats</label>
+        <br><br>
+        <input type="checkbox" id="replay-smooth-camera" checked>
+        <label for="replay-smooth-camera">Smooth Camera Movement</label>
+        <br><br>
+        <input type="checkbox" id="replay-show-deaths">
+        <label for="replay-show-deaths">Highlight Deaths</label>
+        <br><br>
+        <label for="replay-start-time">Start Time (seconds):</label>
+        <input type="number" id="replay-start-time" value="0" min="0" style="width:100px">
+        <br><br>
+        <label for="replay-end-time">End Time (seconds):</label>
+        <input type="number" id="replay-end-time" value="0" min="0" style="width:100px">
+        <br><br>
+        <label for="replay-camera-distance">Camera Distance:</label>
+        <input type="range" id="replay-camera-distance" min="1" max="10" value="5">
+      </div>
+    </div>
+    
+    <div id="replay-hotkeys" class="panel-hidden">
+      <h3 style="color: #ffcc00; text-align: center;">Replay Controls</h3>
+      <ul style="list-style-type: none; padding: 0;">
+        <li>Space - Play/Pause</li>
+        <li>← - Rewind 5 seconds</li>
+        <li>→ - Fast forward 5 seconds</li>
+        <li>↑ - Increase speed</li>
+        <li>↓ - Decrease speed</li>
+        <li>R - Reset to start</li>
+        <li>F - Toggle fullscreen</li>
+        <li>C - Cycle camera views</li>
+        <li>M - Toggle minimap</li>
+        <li>H - Toggle hitboxes</li>
+      </ul>
+      <h4 style="color: #ffcc00; margin-top: 10px;">Camera Controls:</h4>
+      <ul style="list-style-type: none; padding: 0;">
+        <li>WASD - Move camera</li>
+        <li>Q/E - Zoom in/out</li>
+        <li>Mouse Drag - Rotate view</li>
+        <li>Mouse Wheel - Adjust zoom</li>
+      </ul>
+    </div>
   </div>
+  <script src="menu.js"></script>
   <script src="listeners.js"></script>
   <div id="gamed" style="display:none;">
     <canvas id="game" width="1280" height="720"></canvas>
@@ -204,10 +274,10 @@
   <script src="maps.js"></script>
   <script src="vector.js"></script>
   <script src="utils.js"></script>
-  <script src="EchoManager.js"></script>
+  <script src="echo_manager.js"></script>
   <script src="entities.js"></script>
   <script src="game.js"></script>
-  <script src="gameReplay.js"></script>
+  <script src="game_replay.js"></script>
   <script src="drawer.js"></script>
   <script src="main.js"></script>
 </body>

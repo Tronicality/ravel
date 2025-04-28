@@ -1,6 +1,6 @@
 const staticWidth = width,
   staticHeight = height;
-const game = new Game();
+let game = new Game();
 const inputArray = [];
 let isCustomWorld = true;
 let mousePos = new Vector(0, 0);
@@ -23,6 +23,8 @@ let replayData = {
   area_updated: true,
   state_change_reason: replay_state_reason,
 };
+
+let areaUpdated, worldChanged, areaChanged = false;
 
 function loadMain() {
   isCustomWorld = false;
@@ -183,6 +185,8 @@ function animate(time) {
     const oldArea = player.area;
     const oldWorld = player.world;
 
+    handleReplay(time, input, areaUpdated);
+
     game.update(progress * tick_speed);
 
     const world = game.worlds[player.world];
@@ -190,9 +194,9 @@ function animate(time) {
     const wasVictory = area.getActiveBoundary().t;
     const strokeColor = area.title_stroke_color || "#425a6d";
     const areaText = wasVictory ? "Victory!" : area.name;
-    const areaChanged = oldArea !== player.area;
-    const worldChanged = oldWorld !== player.world;
-    const areaUpdated = areaChanged || worldChanged;
+    areaChanged = oldArea !== player.area;
+    worldChanged = oldWorld !== player.world;
+    areaUpdated = areaChanged || worldChanged;
 
     if (areaChanged) {
       // This may not be needed, but just in case
@@ -226,7 +230,7 @@ function animate(time) {
       }
     });
 
-    handleReplay(time, input, areaUpdated);
+    //handleReplay(time, input, areaUpdated);
   }
   
   lastRender = time;
@@ -236,14 +240,12 @@ function playReplay(time) {
   const progress = settings.fps_limit === "unlimited" ? Math.min(time - lastRender, 1000) : tick_time;
 
   if (settings.fps_limit === "unlimited") {
-    window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(playReplay);
   }
 
   if (!inMenu) {
     if (settings.dev) calculateFps();
     updateBackground(context, width, height, '#333');
-
-    const input = replay.data[frame].input;
 
     if (settings.slow_upgrade) {
       const allowedKeys = [KEYS.LEFT, KEYS.RIGHT, KEYS.UP, KEYS.DOWN, KEYS.W, KEYS.A, KEYS.S, KEYS.D, KEYS.SHIFT];
@@ -256,6 +258,8 @@ function playReplay(time) {
 
     const player = game.players[0];
 
+    /*
+    const input = replay.data[frame].input;
     if (inputArray.length > settings.tick_delay && settings.fps_limit !== "unlimited" && settings.tick_delay > 0) {
       inputArray.splice(0, inputArray.length - settings.tick_delay);
       game.inputPlayer(0, inputArray[0]);
@@ -263,31 +267,22 @@ function playReplay(time) {
       game.inputPlayer(0, input);
     }
     inputArray.push(input);
+    */
 
     const oldArea = player.area;
     const oldWorld = player.world;
 
-    game.update(progress * tick_speed);
+    //game.update(progress * tick_speed);
+    game.setToFrame(frame);
 
     const world = game.worlds[player.world];
     const area = world.areas[player.area];
     const wasVictory = area.getActiveBoundary().t;
     const strokeColor = area.title_stroke_color || "#425a6d";
     const areaText = wasVictory ? "Victory!" : area.name;
-    const areaChanged = oldArea !== player.area;
-    const worldChanged = oldWorld !== player.world;
-    const areaUpdated = areaChanged || worldChanged;
-
-    if (areaChanged) {
-      // This may not be needed, but just in case
-      replay_state_reason.type = 0;
-      replay_state_reason.reason = "Area changed";
-    }
-
-    if (worldChanged) {
-      replay_state_reason.type = 1;
-      replay_state_reason.reason = "World changed";
-    }
+    areaChanged = oldArea !== player.area;
+    worldChanged = oldWorld !== player.world;
+    areaUpdated = areaChanged || worldChanged;
 
     renderArea(game.getStates(0), game.players, player.pos, areaUpdated);
 
@@ -374,27 +369,37 @@ function handleReplay(time, input) {
   const area_has_updated = replay_state_reason.type !== null
 
   if (area_has_updated) {
-    replayData.player = game.players[0];
-    replayData.state = game.getStates(0);
+    const newlyAddedWorld = game.worlds[game.players[0].world];
     replayData.state_change_reason = replay_state_reason;
     replayData.settings = settings;
 
     switch (replay_state_reason.type) {
       case 0: // Area change, may not be needed
-        replayData.area = game.worlds[game.players[0].world].areas[game.players[0].area];
+        replayData.area = newlyAddedWorld.areas[game.players[0].area];
         break;
       case 1: // World change
-        replay.worlds.push(game.worlds[game.players[0].world]);
+        let valid = false;
+        for (const world of replay.worlds) {
+          if (world.id === newlyAddedWorld.id || world.name === newlyAddedWorld.name) {
+            valid = true;
+          }
+        }
+
+        if (valid) {
+          replay.worlds.push(newlyAddedWorld);
+        }
         break;
       case 2: // Pellet change, may not be needed
-        replayData.pellet = game.worlds[game.players[0].world].areas[game.players[0].area].pellets;
+        replayData.pellet = newlyAddedWorld.areas[game.players[0].area].pellets;
         break;
-
       default:
+        console.log("Not implemented update type")
         break;
     }
   }
 
+  replayData.player = { ...game.players[0] };
+  replayData.state = structuredClone(game.getStates(0));
   replayData.area_updated = area_has_updated;
   replayData.time = time;
   replayData.frame = frame;

@@ -1,3 +1,46 @@
+class ReplayGame extends Game {
+    setToFrame(frame) {
+        const frameData = replay.data[frame];
+
+        for (const player of this.players) {
+            //Object.assign(player, frameData.player);
+            player.pos = frameData.player.pos;
+            player.world = this.findPlayerWorldId(frameData);
+            player.area = frameData.player.area;
+
+            const playerArea = this.worlds[player.world].areas[player.area];
+
+            if (frameData.area_updated && !playerArea.loaded) {
+                switch (replay_state_reason.type) {
+                    case 0: // Area change
+                        break;
+                    case 1: // World change
+                        playerArea.load();
+                        break;
+                    case 2: // Pellet change
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
+            playerArea.setToFrame(frame);
+        }
+    }
+    findPlayerWorldId(frameData) {
+        for (let i = 0 ; i < this.worlds.length ; i++) {
+            const world = this.worlds[i];
+            if (world.id === frameData.player.world) {
+                return i
+            }
+            else if (world.name === frameData.state.name) {
+                return i
+            }
+        }
+    }
+}
+
 class ReplayWorld extends World {
     constructor(pos, id, map) {
         super(pos, id, map);
@@ -102,13 +145,63 @@ class ReplayWorld extends World {
 }
 
 class ReplayArea extends Area {
-    constructor(pos, id) {
-        super(pos, id);
+    constructor(pos) {
+        super(pos);
+        this.loaded = false;
     }
-
     load() {
         const boundary = this.getActiveBoundary();
         this.spawnPellets(boundary);
         this.spawnEnemies();
+        this.loaded = true;
+    }
+    setToFrame(frame) {
+        const replayArea = replay.data[frame].state;
+
+        /*
+        // Assets
+        this.assets.forEach((asset, i) => {
+            Object.assign(asset, replayArea[i]);
+        });
+
+        // Effects
+        this.effects.forEach((effect) => {
+
+        })
+        */
+
+        // Entities
+        Object.entries(this.entities).forEach(([type, entityList]) => {
+            entityList.forEach((entity, i) => {
+                Object.assign(entity, replayArea.entities[type][i]);
+            });
+        });
+
+        // Static Entities
+        Object.entries(this.static_entities).forEach(([type, entityList]) => {
+            entityList.forEach((entity, j) => {
+                const replayEntity = replayArea.static_entities[type][j];
+
+                const scaleOscillator = entity.scaleOscillator;
+                const pos = entity.pos;
+                const vel = entity.vel;
+
+
+                Object.assign(scaleOscillator, replayEntity.scaleOscillator);
+                Object.assign(pos, replayEntity.pos);
+                Object.assign(vel, replayEntity.vel);
+
+                replayEntity.scaleOscillator = scaleOscillator;
+                replayEntity.pos = pos;
+                replayEntity.vel = vel;
+
+                Object.assign(entity, replayEntity);
+            });
+        });
+
+        Object.assign(this, {
+            lighting: replayArea.lighting,
+            texture: replayArea.texture,
+        });
     }
 }
