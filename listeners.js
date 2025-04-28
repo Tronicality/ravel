@@ -196,24 +196,35 @@ window.onload = () => {
     startReplay();
     menu.remove();
 
-    /*
-    document.addEventListener("mousemove", Pos, false);
-    document.addEventListener("keydown", keydownKeys, false);
-    document.addEventListener("keyup", keyupKeys, false);
-    document.onmousedown = (e) => {
-      applyInputDelay(settings.input_delay,()=>{
-        if (e.buttons == 1 && !inMenu) {
-          mouse = !mouse;
-        }
-      });
-    };
-    
-    document.onmouseup = (e) => {
-      applyInputDelay(settings.input_delay,()=> {if (!settings.mouse_toggle && !inMenu) mouse = !mouse;})
-    };
-    */
+    document.addEventListener("keydown", replayKeyBinds);
   }
 }
+
+function replayKeyBinds(e) {
+  const player = game.players[0];
+
+  if (e.key === replayControls.play_pause) {
+    play_replay = !play_replay
+  }
+  if (e.key === replayControls.advance_frame) {
+    if (!canAdvanceFrame()) return;
+    frame++
+  }
+  if (e.key === replayControls.rewind_frame) {
+    if (!canRewindFrame()) return;
+    frame--
+  }
+  if (e.key === replayControls.hero_card) {
+    player.herocard = !player.herocard;
+  }
+  if (e.key === replayControls.minimap) {
+    player.minimap = !player.minimap;
+  }
+  if (e.key === replayControls.reset) {
+    frame = 0
+  }
+}
+
 function keydownKeys(e) {
   const player = game.players[0];
   if(e.code == 'KeyD' && settings.dev){

@@ -2,6 +2,8 @@ const staticWidth = width,
   staticHeight = height;
 let game = new Game();
 const inputArray = [];
+const replayControls = { play_pause: " ", advance_frame: "ArrowRight", rewind_frame: "ArrowLeft", reset: "r", minimap: "m", hero_card: "h" };
+const cameraControls = {};
 let isCustomWorld = true;
 let mousePos = new Vector(0, 0);
 let mouse = false;
@@ -9,6 +11,7 @@ let loaded = false;
 let lastRender = 0;
 let fov = 32;
 let frame = 0;
+let play_replay = true;
 let replay_loaded = false;
 let replay_state_reason = { type: 1, reason: "World changed" };
 let replay = { initial: {}, data: [], worlds: [] };
@@ -186,7 +189,6 @@ function animate(time) {
     const oldWorld = player.world;
 
     handleReplay(time, input, areaUpdated);
-
     game.update(progress * tick_speed);
 
     const world = game.worlds[player.world];
@@ -229,50 +231,23 @@ function animate(time) {
         drawAreaHeader(context, 5, "#006b2c", area.text, staticWidth, staticHeight - 120, null, size, "#00ff6b");
       }
     });
-
-    //handleReplay(time, input, areaUpdated);
   }
   
   lastRender = time;
 }
 
-function playReplay(time) {
-  const progress = settings.fps_limit === "unlimited" ? Math.min(time - lastRender, 1000) : tick_time;
-
+function playReplay() {
   if (settings.fps_limit === "unlimited") {
     window.requestAnimationFrame(playReplay);
   }
 
   if (!inMenu) {
-    if (settings.dev) calculateFps();
     updateBackground(context, width, height, '#333');
 
-    if (settings.slow_upgrade) {
-      const allowedKeys = [KEYS.LEFT, KEYS.RIGHT, KEYS.UP, KEYS.DOWN, KEYS.W, KEYS.A, KEYS.S, KEYS.D, KEYS.SHIFT];
-      Object.keys(keys).forEach(key => {
-        if (keys[key] && !allowedKeys.includes(parseInt(key))) {
-          keys[key] = false;
-        }
-      });
-    }
-
     const player = game.players[0];
-
-    /*
-    const input = replay.data[frame].input;
-    if (inputArray.length > settings.tick_delay && settings.fps_limit !== "unlimited" && settings.tick_delay > 0) {
-      inputArray.splice(0, inputArray.length - settings.tick_delay);
-      game.inputPlayer(0, inputArray[0]);
-    } else {
-      game.inputPlayer(0, input);
-    }
-    inputArray.push(input);
-    */
-
     const oldArea = player.area;
     const oldWorld = player.world;
 
-    //game.update(progress * tick_speed);
     game.setToFrame(frame);
 
     const world = game.worlds[player.world];
@@ -305,10 +280,14 @@ function playReplay(time) {
       }
     });
 
-    frame++;
+    // Will be changed for full controls in future time
+    if (canAdvanceFrame() && play_replay) {
+      frame++;
+    }
+    else {
+      play_replay = false;
+    }
   }
-  
-  lastRender = time;
 }
 
 function startAnimation() {
@@ -378,10 +357,10 @@ function handleReplay(time, input) {
         replayData.area = newlyAddedWorld.areas[game.players[0].area];
         break;
       case 1: // World change
-        let valid = false;
+        let valid = true;
         for (const world of replay.worlds) {
           if (world.id === newlyAddedWorld.id || world.name === newlyAddedWorld.name) {
-            valid = true;
+            valid = false;
           }
         }
 

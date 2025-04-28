@@ -883,3 +883,11 @@ class Pulsation {
     }
   } 
 }
+
+function canAdvanceFrame() {
+  return frame < replay.data.length - 1;
+}
+
+function canRewindFrame() {
+  return frame > 0
+}
