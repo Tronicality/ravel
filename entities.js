@@ -181,9 +181,6 @@ class Pellet extends Entity {
     this.scaleOscillator.update(time);
     for (const player of players) {
       if (this.checkCollision(player, offset)) {
-        replay_state_reason.type = 2;
-        replay_state_reason.reason = "Pellet Change";
-
         this.respawn(area);
         this.updatePlayer(player);
         break;

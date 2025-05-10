@@ -1,63 +1,59 @@
 class ReplayGame extends Game {
     setToFrame(frame) {
+        if (!replay.initial.isSandbox) return; // Fix Evades
+
         const frameData = replay.data[frame];
 
         for (const player of this.players) {
-            //Object.assign(player, frameData.player);
-            player.pos = frameData.player.pos;
-            player.world = this.findPlayerWorldId(frameData);
-            player.area = frameData.player.area;
+            this.assignToPlayer(player, frameData);
+            //const playerArea = this.worlds[player.world].areas[player.area];
 
-            const playerArea = this.worlds[player.world].areas[player.area];
-
-            if (frameData.area_updated && !playerArea.loaded) {
-                switch (replay_state_reason.type) {
-                    case 0: // Area change
-                        break;
-                    case 1: // World change
-                        playerArea.load();
-                        break;
-                    case 2: // Pellet change
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-
-            playerArea.setToFrame(frame);
+            this.worlds[player.world].areas[player.area].setToFrame(frame);
         }
     }
     findPlayerWorldId(frameData) {
-        for (let i = 0 ; i < this.worlds.length ; i++) {
+        for (let i = 0; i < this.worlds.length; i++) {
             const world = this.worlds[i];
             if (world.id === frameData.player.world) {
                 return i
             }
-            else if (world.name === frameData.state.name) {
+            else if (world.name === frameData.area.region_name) {
                 return i
             }
         }
+    }
+    assignToPlayer(player, frameData) {
+        //Object.assign(player, frameData.player);
+        player.pos = frameData.player.pos;
+        player.world = this.findPlayerWorldId(frameData);
+        player.area = (replay.initial.isSandbox) ? frameData.player.area : frameData.player.area - 1;
+        player.timer = frameData.player.timer;
     }
 }
 
 class ReplayWorld extends World {
     constructor(pos, id, map) {
         super(pos, id, map);
+        this.name = (map.name !== undefined) ? map.name : this.name;
+    }
+    fromJson(json) {
+        if (replay.initial.isSandbox) {
+            this.handleSandbox(json);
+        }
+        else {
+            this.handleEvades(json);
+        }
+    }
+    handleSandbox(map) {
+        this.background_color = (map.background_color !== undefined) ? map.background_color : this.background_color;
+        this.friction = (map.friction !== undefined) ? map.friction : this.friction;
+        this.lighting = (map.lighting !== undefined) ? map.lighting : this.lighting;
+        this.magnetism = (map.magnetism !== undefined) ? map.magnetism : this.magnetism;
+        this.pellet_count = (map.pellet_count !== undefined) ? map.pellet_count : this.pellet_count;
+        this.pellet_multiplier = (map.pellet_multiplier !== undefined) ? map.pellet_multiplier : this.pellet_multiplier;
 
-        this.pos = pos;
-        this.id = id;
-        this.name = map.name;
-        this.background_color = map.background_color;
-        this.friction = map.friction;
-        this.lighting = map.lighting;
-        this.magnetism = map.magnetism;
-        this.pellet_count = map.pellet_count;
-        this.pellet_multiplier = map.pellet_multiplier;
-
-        this.areas = [];
         for (const area of map.areas) {
-            const replayArea = new ReplayArea(area.pos, area.id);
+            const replayArea = new ReplayArea(area.pos);
 
             const replayZones = [];
             const replayAssets = [];
@@ -67,8 +63,7 @@ class ReplayWorld extends World {
 
             for (const zone of area.zones) {
                 // Zone
-                const zonePos = new Vector(zone.x, zone.y);
-                const replayZone = new Zone(zonePos, zone.size, zone.type);
+                const replayZone = new Zone(zone.pos, zone.size, zone.type);
 
                 Object.assign(replayZone, zone);
                 replayZones.push(replayZone);
@@ -130,14 +125,53 @@ class ReplayWorld extends World {
                 effects: replayEffects,
                 entities: replayEntities,
                 static_entities: replayStaticEntities,
-                preset: [] //area.preset,
+                //preset: area.preset,
             });
 
             this.areas.push(replayArea);
         }
     }
-    fromJson(json) {
-        this.name = json.name;
+    handleEvades(map) {
+        map.areas.forEach((area, i) => {
+            const replayArea = new ReplayArea(new Vector((area.pos.x - 1952) / 32, area.pos.y / 32));
+
+            const areaName = (area.name) ? area.name : (area.boss) ? "BOSS " + `AREA ${i + 1}` : `Area ${i + 1}`;
+            const replayZones = [];
+            const replayAssets = [];
+            const replayEffects = {};
+            const replayEntities = {};
+            const replayStaticEntities = {};
+
+            area.zones.forEach((zone) => {
+                const replayZone = new Zone(
+                    new Vector(zone.x / 32 - area.pos.x / 32, zone.y / 32 - area.pos.y / 32),
+                    new Vector(zone.width / 32, zone.height / 32), 
+                    zone.type
+                )
+                replayZone.backgroundColor = zone.background_color;
+
+                replayZones.push(replayZone);
+            })
+
+            Object.assign(replayArea, {
+                name: areaName,
+                //background_color: area.background_color,
+                //title_stroke_color: area.title_stroke_color,
+                text: area.text || String.empty,
+                //lighting: area.lighting,
+                //pellet_count: area.pellet_count,
+                //pellet_multiplier: area.pellet_multiplier,
+                //texture: area.texture,
+                zones: replayZones,
+                //assets: replayAssets,
+                //effects: replayEffects,
+                //entities: replayEntities,
+                //static_entities: replayStaticEntities,
+                //preset: [] //area.preset,
+            });
+
+            this.areas.push(replayArea);
+        })
     }
     entityIdentifier() {
         return this.id;
@@ -156,7 +190,7 @@ class ReplayArea extends Area {
         this.loaded = true;
     }
     setToFrame(frame) {
-        const replayArea = replay.data[frame].state;
+        const replayArea = replay.data[frame].area;
 
         /*
         // Assets
@@ -186,7 +220,6 @@ class ReplayArea extends Area {
                 const pos = entity.pos;
                 const vel = entity.vel;
 
-
                 Object.assign(scaleOscillator, replayEntity.scaleOscillator);
                 Object.assign(pos, replayEntity.pos);
                 Object.assign(vel, replayEntity.vel);
@@ -202,6 +235,7 @@ class ReplayArea extends Area {
         Object.assign(this, {
             lighting: replayArea.lighting,
             texture: replayArea.texture,
+            //preset: replayArea.preset,
         });
     }
 }

@@ -124,13 +124,15 @@ window.onload = () => {
 
     replay.initial = {
       starting_pos: starting_pos,
-      world: world.selectedIndex,
-      is_custom_world: isCustomWorld,
+      //world: world.selectedIndex,
       hero: hero.selectedIndex,
       head: { value: head.value, selectedIndex: head.selectedIndex },
       settings: settings,
-      sandbox: true,
+      isSandbox: true,
+      date: Date.now()
     }
+
+    replay.initial.settings.dev = true;
 
     game.worlds[0].areas[0].load();
     startAnimation();
@@ -157,47 +159,101 @@ window.onload = () => {
       alert("Please load a replay file first.");
       return;
     }
-    
-    const initialData = replay.initial;
+
     game = new ReplayGame();
 
-    for (const setting in initialData.settings) {
-      settings[setting] = initialData.settings[setting];
+    if (replay.initial.isSandbox) {
+      handleSandboxReplay();
     }
-    
-    const head = document.getElementById("wreath") //initialData.head;
-    if(head.value){
-      const additionalInfo = (head.selectedIndex <= 5) ? "-wreath" : "";
-      const formatHead = head.value.toLowerCase().replaceAll(' ', '-') + additionalInfo;
-      images.hat.src = `texture/${formatHead}.png`;
+    else {
+      handleEvadesReplay();
     }
 
-    gamed.style.display = "inline-block";
-    inMenu = false;
-    loadReplay();
-    const player = new [Basic,Magmax,Rime,Morfe,Aurora,Necro,Brute,Shade,Chrono,Reaper,Rameses,Cent,Jotunn,Candy,Mirage,Clown,Burst,Lantern,Pole,Polygon,Poop][hero.selectedIndex](initialData.starting_pos,5);
-    player.name = settings.nick;
-    game.players.push(player);
-    if(settings.max_stats){
-      player.upgradeToMaxStats();
-    }
-    
     loadImages(game.players[0].className);
-    if(game.worlds.length == 0) game.worlds.push(missing_world);
+    gamed.style.display = "inline-block";
+    loadReplay();
 
-    // This is going to be effort
-    if (game.worlds[0].name.startsWith("Endless Echo") && !isCustomWorld) {
-      game.echoManagers[game.worlds[0].name.endsWith("Hard") ? "hard" : "normal"].create_areas([], player.area);
-      // Generate random enemies on load
-      new RandomEnemyGenerator(game.worlds[0].areas[0], game.worlds[0].name.endsWith("Hard")).generate_random_enemies(player.area);
+    if(game.worlds.length == 0) {
+      alert("Invalid Replay!");
+      return;
     }
 
+    inMenu = false;
+    menu.remove();
     game.worlds[0].areas[0].load();
     startReplay();
-    menu.remove();
 
     document.addEventListener("keydown", replayKeyBinds);
   }
+}
+
+function handleSandboxReplay() {
+  const initialData = replay.initial;
+
+  for (const setting in initialData.settings) {
+    settings[setting] = initialData.settings[setting];
+  }
+  
+  const head = initialData.head;
+  if (head.value) {
+    const additionalInfo = (head.selectedIndex <= 5) ? "-wreath" : "";
+    const formatHead = head.value.toLowerCase().replaceAll(' ', '-') + additionalInfo;
+    images.hat.src = `texture/${formatHead}.png`;
+  }
+
+  const player = new [Basic, Magmax, Rime, Morfe, Aurora, Necro, Brute, Shade, Chrono, Reaper, Rameses, Cent, Jotunn, Candy, Mirage, Clown, Burst, Lantern, Pole, Polygon, Poop][hero.selectedIndex](initialData.starting_pos, 5);
+  player.name = settings.nick;
+  game.players.push(player);
+}
+
+function handleEvadesReplay() {
+  const initialData = replay.initial;
+
+  for (const setting in initialData.settings) {
+    settings[setting] = initialData.settings[setting];
+  }
+
+  images.hat.sec = `texture/${initialData.head}.png`
+
+  const starting_pos = { x: (initialData.starting_pos.x - 1952) / 32, y: initialData.starting_pos.y / 32 };
+
+  const replacementHero = new Basic(starting_pos, 5)
+  const player = new [
+    Magmax,
+    Rime,
+    Morfe,
+    Aurora,
+    Necro,
+    Brute,
+    replacementHero, // Nexus
+    Shade,
+    replacementHero, // Euclid
+    Chrono,
+    Reaper,
+    Rameses,
+    replacementHero, // Jolt
+    replacementHero, // Ghoul
+    Cent,
+    Jotunn,
+    Candy,
+    Mirage,
+    replacementHero, // Boldrock
+    replacementHero, // Glob
+    replacementHero, // Magno
+    replacementHero, // Ignis
+    replacementHero, // Stella
+    replacementHero, // Viola
+    replacementHero, // Mortuus
+    replacementHero, // Echelon
+    replacementHero, // Demona
+    replacementHero, // Stheno
+    replacementHero, // Factorb
+    replacementHero, // Leono
+    replacementHero, // Cybot
+  ][initialData.hero](starting_pos, 5);
+  player.name = settings.nick;
+
+  game.players.push(player);
 }
 
 function replayKeyBinds(e) {
@@ -222,6 +278,34 @@ function replayKeyBinds(e) {
   }
   if (e.key === replayControls.reset) {
     frame = 0
+  }
+
+  if (e.key === replayControls.camera_up) {
+    cameraOffset.y -= cameraSpeed;
+    detachedCamera = true;
+  }
+  if (e.key === replayControls.camera_down) {
+    cameraOffset.y += cameraSpeed;
+    detachedCamera = true;
+  }
+  if (e.key === replayControls.camera_left) {
+    cameraOffset.x -= cameraSpeed;
+    detachedCamera = true;
+  }
+  if (e.key === replayControls.camera_right) {
+    cameraOffset.x += cameraSpeed;
+    detachedCamera = true;
+  }
+  if (e.key === replayControls.camera_zoom_in) {
+    // Code here
+  }
+  if (e.key === replayControls.camera_zoom_out) {
+    // Code here
+  }
+  if (e.key === replayControls.camera_reset) {
+    cameraOffset.x = 0;
+    cameraOffset.y = 0;
+    detachedCamera = false;
   }
 }
 

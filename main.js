@@ -2,7 +2,24 @@ const staticWidth = width,
   staticHeight = height;
 let game = new Game();
 const inputArray = [];
-const replayControls = { play_pause: " ", advance_frame: "ArrowRight", rewind_frame: "ArrowLeft", reset: "r", minimap: "m", hero_card: "h" };
+const replayControls = {
+  play_pause: " ",
+  advance_frame: "ArrowRight",
+  rewind_frame: "ArrowLeft",
+  increase_playback_speed: "ArrowUp",
+  decrease_playback_speed: "ArrowDown",
+  reset: "r",
+  minimap: "m",
+  hero_card: "h",
+  play_in_place: "p",
+  camera_up: "w",
+  camera_down: "s",
+  camera_left: "a",
+  camera_right: "d",
+  camera_zoom_out: "q",
+  camera_zoom_in: "e",
+  camera_reset: "f",
+};
 const cameraControls = {};
 let isCustomWorld = true;
 let mousePos = new Vector(0, 0);
@@ -11,23 +28,22 @@ let loaded = false;
 let lastRender = 0;
 let fov = 32;
 let frame = 0;
-let play_replay = true;
+let play_replay = false;
 let replay_loaded = false;
-let replay_state_reason = { type: 1, reason: "World changed" };
+const replay_state_reason = { type: 1, reason: "World changed" };
 let replay = { initial: {}, data: [], worlds: [] };
 let replayData = {
-  state: {},
   area: {},
-  pellet: {},
   player: {},
-  time: 0,
-  frame: 0,
   input: {},
   area_updated: true,
-  state_change_reason: replay_state_reason,
 };
-
-let areaUpdated, worldChanged, areaChanged = false;
+const cameraOffset = { x: 0, y: 0 };
+const staticCameraPos = { x: 0, y: 0 };
+const cameraSpeed = 0.5;
+let areaUpdated = true;
+const isCameraStatic = true;
+let detachedCamera = false;
 
 function loadMain() {
   isCustomWorld = false;
@@ -119,9 +135,20 @@ function loadSecondary() {
 }
 
 function loadReplay() {
-  for (const world of replay.worlds) {
-    game.worlds.push(new ReplayWorld(new Vector(world.pos.x, world.pos.y), world.id, world));
+  if (replay.initial.isSandbox) {
+    replay.worlds.forEach((world, i) => {
+      game.worlds.push(new ReplayWorld(new Vector(world.pos.x, world.pos.y), i, world));
+    })
   }
+  else {
+    replay.worlds.forEach((world, i) => {
+      game.worlds.push(new ReplayWorld(new Vector((world.pos.x - 1952) / 32, world.pos.y / 32), i, world));
+    })
+  }
+}
+
+function loadEvadesReplay() {
+
 }
 
 const images = {
@@ -188,7 +215,7 @@ function animate(time) {
     const oldArea = player.area;
     const oldWorld = player.world;
 
-    handleReplay(time, input, areaUpdated);
+    handleReplay(areaUpdated, input);
     game.update(progress * tick_speed);
 
     const world = game.worlds[player.world];
@@ -196,8 +223,8 @@ function animate(time) {
     const wasVictory = area.getActiveBoundary().t;
     const strokeColor = area.title_stroke_color || "#425a6d";
     const areaText = wasVictory ? "Victory!" : area.name;
-    areaChanged = oldArea !== player.area;
-    worldChanged = oldWorld !== player.world;
+    const areaChanged = oldArea !== player.area;
+    const worldChanged = oldWorld !== player.world;
     areaUpdated = areaChanged || worldChanged;
 
     if (areaChanged) {
@@ -232,7 +259,7 @@ function animate(time) {
       }
     });
   }
-  
+
   lastRender = time;
 }
 
@@ -258,8 +285,8 @@ function playReplay() {
     areaChanged = oldArea !== player.area;
     worldChanged = oldWorld !== player.world;
     areaUpdated = areaChanged || worldChanged;
-
-    renderArea(game.getStates(0), game.players, player.pos, areaUpdated);
+    
+    renderArea(game.getStates(0), game.players, handleCamera(player.pos), areaUpdated);
 
     applyScale(context, settings.scale, () => {
       drawAreaHeader(context, 6, strokeColor, areaText, staticWidth, 40, world);
@@ -270,13 +297,8 @@ function playReplay() {
         drawAreaHeader(context, 6, strokeColor, timerTime, staticWidth, 80, null, 30, style);
       }
 
-      if (settings.world.selectedIndex === 3 && !replay_loaded) {
-        area.text = "this is to import a map, top left in the menu";
-      }
-
       if (area.text) {
-        const size = world.selectedIndex === 2 && player.area === 0 ? 35 : 25;
-        drawAreaHeader(context, 5, "#006b2c", area.text, staticWidth, staticHeight - 120, null, size, "#00ff6b");
+        drawAreaHeader(context, 5, "#006b2c", area.text, staticWidth, staticHeight - 120, null, 25, "#00ff6b");
       }
     });
 
@@ -288,6 +310,21 @@ function playReplay() {
       play_replay = false;
     }
   }
+}
+
+function handleCamera(playerPos) {
+  if (!isCameraStatic) {
+    return new Vector(playerPos.x + cameraOffset.x, playerPos.y + cameraOffset.y);
+  }
+
+  if (detachedCamera) {
+    return new Vector(staticCameraPos.x + cameraOffset.x, staticCameraPos.y + cameraOffset.y);
+  }
+
+  staticCameraPos.x = playerPos.x;
+  staticCameraPos.y = playerPos.y;
+
+  return playerPos;
 }
 
 function startAnimation() {
@@ -344,49 +381,61 @@ function startReplay() {
   }
 }
 
-function handleReplay(time, input) {
-  const area_has_updated = replay_state_reason.type !== null
+function getArea() {
+  var player = game.players[0];
+  var obj = {}
+  var area = game.worlds[player.world].areas[player.area]
+  obj.name = game.worlds[player.world].name;
+  obj.zones = area.zones;
+  obj.assets = area.assets;
+  obj.entities = area.entities;
+  obj.static_entities = area.static_entities;
+  obj.effects = area.effects;
+  obj.background_color = area.background_color;
+  obj.lighting = area.lighting;
+  obj.texture = area.texture || 0;
+  //obj.variables = area.variables;
+  //obj.pattern_amount = area.pattern_amount;
+  obj.text = area.text;
+  obj.pos = new Vector(area.pos.x + game.worlds[player.world].pos.x, area.pos.y + game.worlds[player.world].pos.y);
+  obj.boundary = area.getBoundary();
+  obj.magnetism = area.magnetism;
+  obj.partial_magnetism = area.partial_magnetism;
+  obj.applies_lantern = area.applies_lantern;
+  obj.pellet_count = area.pellet_count;
+  obj.pellet_multiplier = area.multiplier;
+  obj.boss = area.boss;
+  return obj;
+}
 
+function handleReplay(area_has_updated, input) {
   if (area_has_updated) {
     const newlyAddedWorld = game.worlds[game.players[0].world];
-    replayData.state_change_reason = replay_state_reason;
-    replayData.settings = settings;
+    //replayData.state_change_reason = replay_state_reason;
+    //replayData.settings = settings;
 
-    switch (replay_state_reason.type) {
-      case 0: // Area change, may not be needed
-        replayData.area = newlyAddedWorld.areas[game.players[0].area];
-        break;
-      case 1: // World change
-        let valid = true;
-        for (const world of replay.worlds) {
-          if (world.id === newlyAddedWorld.id || world.name === newlyAddedWorld.name) {
-            valid = false;
-          }
-        }
+    let valid = true;
+    for (const world of replay.worlds) {
+      if (world.id === newlyAddedWorld.id || world.name === newlyAddedWorld.name) {
+        valid = false;
+      }
+    }
 
-        if (valid) {
-          replay.worlds.push(newlyAddedWorld);
-        }
-        break;
-      case 2: // Pellet change, may not be needed
-        replayData.pellet = newlyAddedWorld.areas[game.players[0].area].pellets;
-        break;
-      default:
-        console.log("Not implemented update type")
-        break;
+    if (valid) {
+      replay.worlds.push(newlyAddedWorld);
     }
   }
 
-  replayData.player = { ...game.players[0] };
-  replayData.state = structuredClone(game.getStates(0));
-  replayData.area_updated = area_has_updated;
-  replayData.time = time;
-  replayData.frame = frame;
-  replayData.input = input;
+  replayData = {
+    player: { ...game.players[0] },
+    area: structuredClone(getArea()), //area,
+    area_updated: area_has_updated,
+    input: input,
+    //frame: frame
+    //state_change_type: replay_state_reason.type,
+  };
 
   replay.data.push(replayData);
-
-  replay_state_reason = { type: null, reason: String.empty };
   replayData = {};
 
   frame++;

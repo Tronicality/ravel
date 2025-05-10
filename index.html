@@ -213,14 +213,14 @@
     </div>
     
     <div id="replay-settings" class="panel-hidden">
-      <div>Replay Settings:</div>
+      <div>Replay Settings (WIP):</div>
       <div class="settingsElement" style="line-height:75%;">
         <br><br>
-        <input type="checkbox" id="replay-show-hitboxes" checked>
-        <label for="replay-show-hitboxes">Show Hitboxes</label>
+        <input type="checkbox" id="replay-camera-static" checked>
+        <label for="replay-camera-static">Static Camera</label>
         <br><br>
         <input type="checkbox" id="replay-show-trajectories">
-        <label for="replay-show-trajectories">Show Projectile Trajectories</label>
+        <label for="replay-show-trajectories">Show Enemy Trajectories</label>
         <br><br>
         <input type="checkbox" id="replay-show-stats" checked>
         <label for="replay-show-stats">Show Player Stats</label>
@@ -231,14 +231,8 @@
         <input type="checkbox" id="replay-show-deaths">
         <label for="replay-show-deaths">Highlight Deaths</label>
         <br><br>
-        <label for="replay-start-time">Start Time (seconds):</label>
-        <input type="number" id="replay-start-time" value="0" min="0" style="width:100px">
-        <br><br>
-        <label for="replay-end-time">End Time (seconds):</label>
-        <input type="number" id="replay-end-time" value="0" min="0" style="width:100px">
-        <br><br>
-        <label for="replay-camera-distance">Camera Distance:</label>
-        <input type="range" id="replay-camera-distance" min="1" max="10" value="5">
+        <label for="replay-camera-speed">Camera Speed:</label>
+        <input type="range" id="replay-camera-speed" min="0.1" max="2" value="1" step="0.1">
       </div>
     </div>
     
@@ -258,9 +252,10 @@
       <h4 style="color: #ffcc00; margin-top: 10px;">Camera Controls:</h4>
       <ul style="list-style-type: none; padding: 0;">
         <li>WASD - Move camera</li>
-        <li>Q/E - Zoom in/out</li>
-        <li>Mouse Drag - Rotate view</li>
-        <li>Mouse Wheel - Adjust zoom</li>
+        <li>Q/E - Zoom in/out (WIP)</li>
+        <li>F - Set camera to Player</li>
+        <li>Mouse Drag - Rotate view (WIP)</li>
+        <li>Mouse Wheel - Adjust zoom (WIP)</li>
       </ul>
     </div>
   </div>
